@@ -1,0 +1,10 @@
+{:deps {clojure-lanterna/clojure-lanterna {:mvn/version "0.9.7"}}
+ :aliases {:depstar
+           {:replace-deps
+            {com.github.seancorfield/depstar {:mvn/version "2.1.278"}}
+            :ns-default hf.depstar
+            :exec-fn hf.depstar/uberjar
+            :exec-args {:jar app.jar
+                        :aot true
+                        :compile-ns [irm.core]
+                        :main-class "irm.core"}}}}
