@@ -1,1 +1,4 @@
 app*
+/.cpcache/
+/.lsp/
+/.nrepl-port
