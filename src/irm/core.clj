@@ -16,7 +16,6 @@
   (let [[big-x big-y] (s/get-size scr)
         bounded-x #(bounded 0 % big-x)
         bounded-y #(bounded 0 % big-y)]
-    (println [big-x big-y])
     (swap! *cursor
            (fn [{x :x y :y} dx dy] {:x (bounded-x (+ x dx)) :y (bounded-y (+ y dy))})
            x
@@ -44,25 +43,44 @@
     "[X]"
     "[ ]"))
 
+(defn draw-file [scr file selected? i]
+  (s/put-string scr 0 (inc i) (st/join " " [(check-box selected?) file]))
+  (s/redraw scr))
+
 (defn- create-screen [type]
   (let [current-path (.getCanonicalPath (File. "."))
         files (map str (.list (File. current-path)))
         file-map (create-file-map files)
         scr (s/get-screen type)
-        draw-fn (fn [scr file selected? i]
-                  (s/put-string scr 0 (inc i) (st/join " " [(check-box selected?) file])))]
+        draw-fn draw-file]
     (s/start scr)
     (s/put-string scr 0 0 (str "Current directory:" current-path))
     (draw-file-map scr draw-fn file-map)
     (s/redraw scr)
     {:screen scr :file-map file-map}))
 
+(defn- update-file-map
+  [scr {:keys [x y]} file-map]
+  (let [index (dec y)
+        [file {selected :selected?}] (get (vec file-map) index)]
+    (draw-file scr file (not selected) index)
+    (assoc-in file-map [file :selected?] (not selected))))
+
+(defn- event-loop [scr file-map]
+  (loop [file-map file-map]
+    (case (s/get-key-blocking scr)
+      :down (do (update-cursor scr 0 1) (recur file-map))
+      :up (do (update-cursor scr 0 -1) (recur file-map))
+      \x (recur (update-file-map scr @*cursor file-map))
+      nil)))
+
 (defn -main [& _]
-  (let [{x :screen} (create-screen :text)]
-    (s/get-key-blocking x)
-    (s/stop x)))
+  (let [{scr :screen file-map :file-map} (create-screen :swing)]
+    (event-loop scr file-map)
+    (s/stop scr)))
 
 (comment
+  (-main)
   (let [{scr :screen} (create-screen :swing)]
     (def scr scr))
   (s/start scr)
