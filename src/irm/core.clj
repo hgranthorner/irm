@@ -35,7 +35,7 @@
   [scr draw-fn file-map]
   (doall
    (map-indexed (fn [i [file {:keys [selected?]}]] (draw-fn scr file selected? i))
-        file-map)))
+                file-map)))
 
 (defn- check-box
   [b]
@@ -56,6 +56,7 @@
     (s/start scr)
     (s/put-string scr 0 0 (str "Current directory:" current-path))
     (draw-file-map scr draw-fn file-map)
+    (s/put-string scr 0 (dec (second (s/get-size scr))) "up/k/p - up | down/j/n - down | x - select | q - quit")
     (s/redraw scr)
     {:screen scr :file-map file-map}))
 
@@ -66,13 +67,19 @@
     (draw-file scr file (not selected) index)
     (assoc-in file-map [file :selected?] (not selected))))
 
+(defn- handle-input [scr cursor file-map]
+  (case (s/get-key-blocking scr)
+    (:down \j \n) (do (update-cursor scr 0 1) [file-map true])
+    (:up \k \p) (do (update-cursor scr 0 -1) [file-map true])
+    \z (do (println "Hello world4") [file-map true])
+    \x [(update-file-map scr @*cursor file-map) true]
+    nil))
+
 (defn- event-loop [scr file-map]
-  (loop [file-map file-map]
-    (case (s/get-key-blocking scr)
-      :down (do (update-cursor scr 0 1) (recur file-map))
-      :up (do (update-cursor scr 0 -1) (recur file-map))
-      \x (recur (update-file-map scr @*cursor file-map))
-      nil)))
+  (loop [file-map file-map
+         [new-file-map continue?] ((resolve 'handle-input) scr *cursor file-map)]
+    (if continue?
+      (recur new-file-map (handle-input scr *cursor new-file-map)))))
 
 (defn -main [& _]
   (let [{scr :screen file-map :file-map} (create-screen :swing)]
@@ -80,7 +87,7 @@
     (s/stop scr)))
 
 (comment
-  (-main)
+  (future (-main))
   (let [{scr :screen} (create-screen :swing)]
     (def scr scr))
   (s/start scr)
@@ -88,7 +95,6 @@
   (s/redraw scr)
   (s/clear scr)
   (println (s/get-key-blocking scr))
-  ; The beginnings of the event loop
   (loop []
     (case (s/get-key-blocking scr)
       :down (do (update-cursor scr 0 1) (recur))
@@ -97,7 +103,7 @@
   (map str (.list (File. (.getCanonicalPath (File. ".")))))
   (map-indexed (fn [i f]
                  (s/put-string scr 0 (+ 2 i) f))
-   (map str (.list (File. "."))))
+               (map str (.list (File. "."))))
   (s/redraw scr)
   (s/stop scr)
   (comment))
