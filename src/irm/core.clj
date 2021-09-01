@@ -1,6 +1,6 @@
 (ns irm.core
-  (:require [lanterna.screen :as s]
-            [clojure.string :as st])
+  (:require [irm.views :as v]
+            [lanterna.screen :as s])
   (:import [java.io File])
   (:gen-class))
 
@@ -27,58 +27,21 @@
     (s/redraw scr)))
 
 (defn- create-file-map [dir-str]
-  (let [files (map str (.list (File. dir-str)))]
+  (let [file-names (map str (.list (File. dir-str)))
+        files (map #(File. %) file-names)]
     (->> files
-        (map #(vector % {:selected? false}))
+        (map #(vector (str (.getName %))
+                      {:selected? false
+                       :depth 0
+                       :directory? (boolean (.isDirectory %))
+                       :open? false}))
         (into {}))))
-
-(defn- draw-file-map
-  "Take a screen, a drawing function and file map, and draws the file map to the screen.
-  The drawing function should be a function that takes four arguments: the screen, the name of the file,
-  whether or not that file has been selected and the index of the current row."
-  [scr draw-fn file-map]
-  (doall
-   (map-indexed (fn [i [file {:keys [selected?]}]] (draw-fn scr file selected? i))
-                (sort file-map))))
-
-(defn- draw-check-box
-  [b]
-  (if b
-    "[X]"
-    "[ ]"))
-
-(defn draw-file [scr file selected? i]
-  (s/put-string scr 0 (inc i) (st/join " " [(draw-check-box selected?) file]))
-  (s/redraw scr))
-
-(defn- draw-file-screen [scr file-map path]
-  (s/clear scr)
-  (s/put-string scr 0 0 (str "Current directory:" path))
-  (draw-file-map scr draw-file file-map)
-  (s/put-string scr 0 (dec (second (s/get-size scr))) "? for help")
-  (s/redraw scr)
-  file-map)
-
-(defn- draw-help-screen [scr]
-  (s/clear scr)
-  (doall
-    (map-indexed #(s/put-string scr 0 %1 %2)
-                 (st/split-lines
-                   "up/k/p - up
-down/j/n - down
-c - select (check)
-x - execute
-r - refresh
-q - quit
-
-Press any button to return.")))
-  (s/redraw scr))
 
 (defn- create-screen [type]
   (let [file-map (create-file-map (current-dir))
         scr (s/get-screen type)]
     (s/start scr)
-    (draw-file-screen scr file-map (current-dir))
+    (v/draw-file-screen scr file-map (current-dir))
     {:screen scr :file-map file-map}))
 
 (defn- update-file-map
@@ -98,15 +61,15 @@ Press any button to return.")))
     (:down \j \n) (do (update-cursor scr 0 1) [file-map true])
     (:up \k \p) (do (update-cursor scr 0 -1) [file-map true])
     \c (let [new-file-map (update-file-map @*cursor file-map)]
-         (draw-file-screen scr new-file-map (current-dir))
+         (v/draw-file-screen scr new-file-map (current-dir))
          [new-file-map true])
-    \x (do (delete-files file-map) [(draw-file-screen scr (create-file-map (current-dir)) (current-dir)) true])
+    \x (do (delete-files file-map) [(v/draw-file-screen scr (create-file-map (current-dir)) (current-dir)) true])
     \q [file-map false]
-    \r [(draw-file-screen scr (create-file-map (current-dir)) (current-dir)) true]
+    \r [(v/draw-file-screen scr (create-file-map (current-dir)) (current-dir)) true]
     \? (do
-         (draw-help-screen scr)
+         (v/draw-help-screen scr)
          (s/get-key-blocking scr)
-         (draw-file-screen scr file-map (current-dir))
+         (v/draw-file-screen scr file-map (current-dir))
          [file-map true])
     [file-map true]))
 

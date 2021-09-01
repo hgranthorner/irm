@@ -21,10 +21,10 @@ irm is written in clojure, and will be compiled with GraalVM for suitably fast s
 to generate a new executable.
 
 ** Roadmap
-*** TODO Mark and delete files [2/3]
+*** [X] Mark and delete files [3/3]
 - [X] Get TUI up and running
 - [X] Display directory contents
-- [ ] Mark and delete files
+- [X] Mark and delete files
 *** TODO Tab to open directories
 *** TODO Auto select based on regex input
 *** TODO Support full command line arguments
