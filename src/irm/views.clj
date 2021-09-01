@@ -43,6 +43,7 @@
                  (st/split-lines
                    "up/k/p - up
 down/j/n - down
+tab - open directory
 c - select (check)
 x - execute
 r - refresh

@@ -44,11 +44,20 @@
     (v/draw-file-screen scr file-map (current-dir))
     {:screen scr :file-map file-map}))
 
-(defn- update-file-map
+(defn- get-file-by-index [file-map index]
+  (get (vec (sort file-map)) index))
+
+(defn- select-file
   [{:keys [y]} file-map]
   (let [index (dec y)
-        [file {selected :selected?}] (get (vec (sort file-map)) index)]
+        [file {selected :selected?}] (get-file-by-index file-map index)]
     (assoc-in file-map [file :selected?] (not selected))))
+
+(defn- toggle-directory
+  [{:keys [y]} file-map]
+  (let [index (dec y)
+        [file {open :open?}] (get-file-by-index file-map index)]
+    (assoc-in file-map [file :open?] (not open))))
 
 (defn- delete-files
   [file-map]
@@ -60,7 +69,7 @@
   (case (s/get-key-blocking scr)
     (:down \j \n) (do (update-cursor scr 0 1) [file-map true])
     (:up \k \p) (do (update-cursor scr 0 -1) [file-map true])
-    \c (let [new-file-map (update-file-map @*cursor file-map)]
+    \c (let [new-file-map (select-file @*cursor file-map)]
          (v/draw-file-screen scr new-file-map (current-dir))
          [new-file-map true])
     \x (do (delete-files file-map) [(v/draw-file-screen scr (create-file-map (current-dir)) (current-dir)) true])
@@ -71,6 +80,9 @@
          (s/get-key-blocking scr)
          (v/draw-file-screen scr file-map (current-dir))
          [file-map true])
+    :tab (let [new-file-map (toggle-directory @*cursor file-map)]
+           (v/draw-file-screen scr new-file-map (current-dir))
+           [new-file-map true])
     [file-map true]))
 
 (defn- event-loop [scr file-map]
