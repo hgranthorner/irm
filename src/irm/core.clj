@@ -55,10 +55,24 @@
   (s/clear scr)
   (s/put-string scr 0 0 (str "Current directory:" path))
   (draw-file-map scr draw-file file-map)
-  (s/put-string scr 0 (dec (second (s/get-size scr))) "up/k/p - up | down/j/n - down | c - select (check) | x - execute | r - refresh |  q - quit")
+  (s/put-string scr 0 (dec (second (s/get-size scr))) "? for help")
   (s/redraw scr)
   file-map)
 
+(defn- draw-help-screen [scr]
+  (s/clear scr)
+  (doall
+    (map-indexed #(s/put-string scr 0 %1 %2)
+                 (st/split-lines
+                   "up/k/p - up
+down/j/n - down
+c - select (check)
+x - execute
+r - refresh
+q - quit
+
+Press any button to return.")))
+  (s/redraw scr))
 
 (defn- create-screen [type]
   (let [file-map (create-file-map (current-dir))
@@ -70,24 +84,30 @@
 (defn- update-file-map
   [scr {:keys [x y]} file-map]
   (let [index (dec y)
-        [file {selected :selected?}] (get (vec file-map) index)]
-    (draw-file scr file (not selected) index)
+        [file {selected :selected?}] (get (vec (sort file-map)) index)]
     (assoc-in file-map [file :selected?] (not selected))))
 
 (defn- delete-files
   [file-map]
-  (->> file-map
-       (filter #(-> % second :selected?))
-       (map #(.delete (File. (first %))))))
+  (doall (->> file-map
+             (filter #(-> % second :selected?))
+             (map #(.delete (File. (first %)))))))
 
 (defn- handle-input [scr file-map]
   (case (s/get-key-blocking scr)
     (:down \j \n) (do (update-cursor scr 0 1) [file-map true])
     (:up \k \p) (do (update-cursor scr 0 -1) [file-map true])
-    \c [(update-file-map scr @*cursor file-map) true]
-    \x (do (delete-files file-map) [file-map true])
+    \c (let [new-file-map (update-file-map scr @*cursor file-map)]
+         (draw-file-screen scr new-file-map (current-dir))
+         [new-file-map true])
+    \x (do (delete-files file-map) [(draw-file-screen scr (create-file-map (current-dir)) (current-dir)) true])
     \q [file-map false]
     \r [(draw-file-screen scr (create-file-map (current-dir)) (current-dir)) true]
+    \? (do
+         (draw-help-screen scr)
+         (s/get-key-blocking scr)
+         (draw-file-screen scr file-map (current-dir))
+         [file-map true])
     [file-map true]))
 
 (defn- event-loop [scr file-map]
