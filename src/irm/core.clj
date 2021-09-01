@@ -37,14 +37,14 @@
    (map-indexed (fn [i [file {:keys [selected?]}]] (draw-fn scr file selected? i))
                 file-map)))
 
-(defn- check-box
+(defn- draw-check-box
   [b]
   (if b
     "[X]"
     "[ ]"))
 
 (defn draw-file [scr file selected? i]
-  (s/put-string scr 0 (inc i) (st/join " " [(check-box selected?) file]))
+  (s/put-string scr 0 (inc i) (st/join " " [(draw-check-box selected?) file]))
   (s/redraw scr))
 
 (defn- create-screen [type]
@@ -56,7 +56,7 @@
     (s/start scr)
     (s/put-string scr 0 0 (str "Current directory:" current-path))
     (draw-file-map scr draw-fn file-map)
-    (s/put-string scr 0 (dec (second (s/get-size scr))) "up/k/p - up | down/j/n - down | x - select | q - quit")
+    (s/put-string scr 0 (dec (second (s/get-size scr))) "up/k/p - up | down/j/n - down | m - select | x - execute | q - quit")
     (s/redraw scr)
     {:screen scr :file-map file-map}))
 
@@ -67,27 +67,39 @@
     (draw-file scr file (not selected) index)
     (assoc-in file-map [file :selected?] (not selected))))
 
-(defn- handle-input [scr cursor file-map]
+(defn- delete-files
+  [file-map]
+  (->> file-map
+       (filter #(-> % second :selected?))))
+
+
+(defn- handle-input [scr file-map]
   (case (s/get-key-blocking scr)
     (:down \j \n) (do (update-cursor scr 0 1) [file-map true])
     (:up \k \p) (do (update-cursor scr 0 -1) [file-map true])
     \z (do (println "Hello world4") [file-map true])
-    \x [(update-file-map scr @*cursor file-map) true]
+    \m [(update-file-map scr @*cursor file-map) true]
+    \x (do (delete-files file-map) [file-map true])
+    \a (do (println "Hi alec") [file-map true])
     nil))
+
+(defn- in-repl? []
+  (st/includes? *command-line-args* "middleware"))
 
 (defn- event-loop [scr file-map]
   (loop [file-map file-map
-         [new-file-map continue?] ((resolve 'handle-input) scr *cursor file-map)]
+         [new-file-map continue?] (#'handle-input scr file-map)]
     (if continue?
-      (recur new-file-map (handle-input scr *cursor new-file-map)))))
+     (recur new-file-map (#'handle-input scr new-file-map)))))
 
-(defn -main [& _]
-  (let [{scr :screen file-map :file-map} (create-screen :swing)]
+(defn -main [& args]
+  (let [{scr :screen file-map :file-map} (create-screen (if (= (first args) "dev") :swing :text))]
     (event-loop scr file-map)
     (s/stop scr)))
 
 (comment
-  (future (-main))
+  (.delete (File. "example.txt"))
+  (future (-main "dev"))
   (let [{scr :screen} (create-screen :swing)]
     (def scr scr))
   (s/start scr)
