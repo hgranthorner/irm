@@ -16,7 +16,7 @@
   (doall
    (map-indexed
     (fn [i path]
-      (let [{:keys [selected? directory? open?]} (u/get-file-from-path file-map path)
+      (let [{:keys [selected? directory? open?]} (u/get-in-file-map file-map path)
             checkbox (draw-check-box selected?)
             dir-symbol (cond
                          (not directory?) " "

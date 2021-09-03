@@ -65,11 +65,12 @@
 (defn- toggle-directory
   [{:keys [y]} file-map]
   (let [index (dec y)
-        path (nth (u/file-map->paths file-map) index)
-        [file {open :open?}] (get-file-by-index file-map index)]
+        path (nth (u/file-map->paths file-map) index)]
     (def ^:dynamic *path* path)
-    (-> (assoc-in file-map [file :open?] (not open))
-        (assoc-in [file :children] (create-file-map (str (current-dir) "/" (st/join "/" path)))))))
+    (-> (u/update-in-file-map file-map path :open? #(not %))
+        (u/assoc-in-file-map path :children (create-file-map (str (current-dir) "/" (st/join "/" path)))))))
+
+(assoc-in {:a {:b {:c 1}}} (flatten [[:a :b] :c]) 2)
 
 (defn- delete-files
   [file-map]
@@ -128,13 +129,19 @@
 
   (def ^:dynamic *term* (future (-main "dev")))
 
+  v/*draw-paths*
+
+  (get-in *fm* (last v/*draw-paths*))
+
   @*term*
   *dir-str*
   (map str (.list (File. *dir-str*)))
   *fm*
   *path*
   *files*
+  u/*assoc-path*
   (str (current-dir) "/" (st/join "/" *path*))
+  (u/file-map->paths *fm*)
   (.getCanonicalPath (second *files*))
   (.isDirectory (second *files*))
 
