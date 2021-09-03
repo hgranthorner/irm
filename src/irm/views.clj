@@ -13,11 +13,8 @@
   [scr paths file-map]
   (doall
    (map-indexed
-    (fn [i p]
-      (let [path (if (seq? p)
-                   p
-                   [p])
-            {:keys [selected? directory? open?]} (get-in file-map path)
+    (fn [i path]
+      (let [{:keys [selected? directory? open?]} (get-in file-map path)
             checkbox (draw-check-box selected?)
             dir-symbol (cond
                          (not directory?) " "

@@ -8,4 +8,5 @@
     [root]))
 
 (defn file-map->paths [fm]
-  (mapcat (fn [[k m]] (get-paths k m)) fm))
+  (->> (mapcat (fn [[k m]] (get-paths k m)) fm)
+       (map #(if (seq? %) % [%]))))

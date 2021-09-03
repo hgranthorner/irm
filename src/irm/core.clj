@@ -71,7 +71,6 @@
 (defn- handle-input [scr file-map]
   (def ^:dynamic *fm* file-map)
   (let [draw-fn (fn [fm]
-                  (print (u/file-map->paths fm))
                   (v/draw-file-screen scr fm (u/file-map->paths fm) (current-dir)))]
     (case (s/get-key-blocking scr)
       (:down \j \n) (do
@@ -115,14 +114,13 @@
                              (u/file-map->paths *fm*)
                              6))
   (.delete (File. "example.txt"))
-  (def ^:dynamic *term* (future (-main "dev")))
-  (future-cancel *term*)
-  (future-cancelled? *term*)
+
+  (future (-main "dev"))
+
   (let [paths (u/file-map->paths *fm*)
-        path (first paths)]
-    (get-in *fm* (if (seq? path)
-                   path
-                   [path])))
+        path (second paths)]
+    (println path)
+    (get-in *fm* path))
   *fm*
   (let [{scr :screen} (create-screen :swing)]
     (def scr scr))
@@ -130,7 +128,6 @@
   (s/stop scr)
   (s/redraw scr)
   (s/clear scr)
-  (println (s/get-key-blocking scr))
   (loop []
     (case (s/get-key-blocking scr)
       :down (do (update-cursor scr 0 1) (recur))
