@@ -1,7 +1,8 @@
 (ns irm.core
   (:require [irm.views :as v]
             [irm.utils :as u]
-            [lanterna.screen :as s])
+            [lanterna.screen :as s]
+            [clojure.string :as st])
   (:import [java.io File])
   (:gen-class))
 
@@ -29,8 +30,10 @@
 
 (defn- create-file-map
   [dir-str]
-  (let [file-names (map str (.list (File. dir-str)))
+  (def ^:dynamic *dir-str* dir-str)
+  (let [file-names (map #(str dir-str "/" %) (.list (File. dir-str)))
         files (map #(File. %) file-names)]
+    (def ^:dynamic *files* files)
     (->> files
          (map #(vector (str (.getName %))
                        {:selected? false
@@ -49,18 +52,24 @@
 (defn- get-file-by-index [file-map index]
   (get (vec file-map) index))
 
+(defn- get-file-path-by-index [file-map index]
+  (nth (u/file-map->paths file-map) index))
+
 (defn- select-file
   [{:keys [y]} file-map]
   (let [index (dec y)
-        [file {selected :selected?}] (get-file-by-index file-map index)]
-    (assoc-in file-map [file :selected?] (not selected))))
+        path (get-file-path-by-index file-map index)
+        {selected :selected?} (get-in file-map path)]
+    (assoc-in file-map (vec (flatten [path :selected?])) (not selected))))
 
 (defn- toggle-directory
   [{:keys [y]} file-map]
   (let [index (dec y)
+        path (nth (u/file-map->paths file-map) index)
         [file {open :open?}] (get-file-by-index file-map index)]
+    (def ^:dynamic *path* path)
     (-> (assoc-in file-map [file :open?] (not open))
-        (assoc-in [file :children] (create-file-map file)))))
+        (assoc-in [file :children] (create-file-map (str (current-dir) "/" (st/join "/" path)))))))
 
 (defn- delete-files
   [file-map]
@@ -106,8 +115,10 @@
 
 (defn -main [& args]
   (let [{scr :screen file-map :file-map} (create-screen (if (= (first args) "dev") :swing :text))]
-    (event-loop scr file-map)
-    (s/stop scr)))
+    (try
+      (event-loop scr file-map)
+      (finally
+        (s/stop scr)))))
 
 (comment
   (get-in *fm* (interpose :children (nth)
@@ -115,28 +126,23 @@
                              6))
   (.delete (File. "example.txt"))
 
-  (future (-main "dev"))
+  (def ^:dynamic *term* (future (-main "dev")))
+
+  @*term*
+  *dir-str*
+  (map str (.list (File. *dir-str*)))
+  *fm*
+  *path*
+  *files*
+  (str (current-dir) "/" (st/join "/" *path*))
+  (.getCanonicalPath (second *files*))
+  (.isDirectory (second *files*))
+
+  (nth (u/file-map->paths *fm*) 3)
+  (get-file-path-by-index *fm* 3)
 
   (let [paths (u/file-map->paths *fm*)
         path (second paths)]
     (println path)
     (get-in *fm* path))
-  *fm*
-  (let [{scr :screen} (create-screen :swing)]
-    (def scr scr))
-  (s/start scr)
-  (s/stop scr)
-  (s/redraw scr)
-  (s/clear scr)
-  (loop []
-    (case (s/get-key-blocking scr)
-      :down (do (update-cursor scr 0 1) (recur))
-      :up (do (update-cursor scr 0 -1) (recur))
-      nil))
-  (map str (.list (File. (.getCanonicalPath (File. ".")))))
-  (map-indexed (fn [i f]
-                 (s/put-string scr 0 (+ 2 i) f))
-               (map str (.list (File. "."))))
-  (s/redraw scr)
-  (s/stop scr)
   (comment))
