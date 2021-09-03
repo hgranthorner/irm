@@ -9,4 +9,7 @@
 
 (defn file-map->paths [fm]
   (->> (mapcat (fn [[k m]] (get-paths k m)) fm)
-       (map #(if (seq? %) % [%]))))
+       (map #(if (seq? %) (vec %) [%]))))
+
+(defn get-file-from-path [fm path]
+  (get-in fm (interpose :children path)))

@@ -1,6 +1,7 @@
 (ns irm.views
   (:require [lanterna.screen :as s]
-            [clojure.string :as st]))
+            [clojure.string :as st]
+            [irm.utils :as u]))
 
 (defn draw-check-box
   [b]
@@ -11,10 +12,11 @@
 (defn draw-files
   "Accepts a lanterna screen object, a seq of seqs representing paths and a file map"
   [scr paths file-map]
+  (def ^:dynamic *draw-paths* paths)
   (doall
    (map-indexed
     (fn [i path]
-      (let [{:keys [selected? directory? open?]} (get-in file-map path)
+      (let [{:keys [selected? directory? open?]} (u/get-file-from-path file-map path)
             checkbox (draw-check-box selected?)
             dir-symbol (cond
                          (not directory?) " "
