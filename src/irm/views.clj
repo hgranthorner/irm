@@ -2,36 +2,36 @@
   (:require [lanterna.screen :as s]
             [clojure.string :as st]))
 
-
-(defn draw-file-map
-  "Take a screen, a drawing function and file map, and draws the file map to the screen.
-  The drawing function should be a function that takes four arguments: the screen, the name of the file,
-  whether or not that file has been selected and the index of the current row."
-  [scr draw-fn file-map]
-  (doall
-   (map-indexed (fn [i [file file-info]] (draw-fn scr file file-info i))
-                (sort file-map))))
-
 (defn draw-check-box
   [b]
   (if b
     "[X]"
     "[ ]"))
 
-(defn draw-file [scr file {:keys [selected? depth directory? open?]} i]
-  (let [checkbox (draw-check-box selected?)
-        dir-symbol (cond
-                     (not directory?) " "
-                     open? "v"
-                     :else ">")
-        x-coord (* 2 (or depth 0))]
-    (s/put-string scr x-coord (inc i) (st/join " " [dir-symbol checkbox file]))
-    (s/redraw scr)))
+(defn draw-files
+  "Accepts a lanterna screen object, a seq of seqs representing paths and a file map"
+  [scr paths file-map]
+  (doall
+   (map-indexed
+    (fn [i p]
+      (let [path (if (seq? p)
+                   p
+                   [p])
+            {:keys [selected? directory? open?]} (get-in file-map path)
+            checkbox (draw-check-box selected?)
+            dir-symbol (cond
+                         (not directory?) " "
+                         open? "v"
+                         :else ">")
+            x-coord (* 2 (dec (count path)))]
+        (s/put-string scr x-coord (inc i) (st/join " " [dir-symbol checkbox (last path)]))
+        (s/redraw scr)))
+    paths)))
 
-(defn draw-file-screen [scr file-map path]
+(defn draw-file-screen [scr file-map paths path]
   (s/clear scr)
   (s/put-string scr 0 0 (str "Current directory:" path))
-  (draw-file-map scr draw-file file-map)
+  (draw-files scr paths file-map)
   (s/put-string scr 0 (dec (second (s/get-size scr))) "? for help")
   (s/redraw scr)
   file-map)
