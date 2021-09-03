@@ -25,6 +25,8 @@ to generate a new executable.
 - [X] Get TUI up and running
 - [X] Display directory contents
 - [X] Mark and delete files
-*** TODO Tab to open directories
+*** DONE Tab to open directories
+*** TODO Select children files
+*** TODO Confirm that nested directories work
 *** TODO Auto select based on regex input
 *** TODO Support full command line arguments
