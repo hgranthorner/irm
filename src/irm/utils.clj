@@ -1,6 +1,6 @@
 (ns irm.utils)
 
-(defn get-paths [root {:keys [open? children]}]
+(defn- get-paths [root {:keys [open? children]}]
   (if open?
     (reduce (fn [acc [k m]]
               (conj acc (flatten [root (get-paths k m)])))
@@ -11,8 +11,11 @@
   (->> (mapcat (fn [[k m]] (get-paths k m)) fm)
        (map #(if (seq? %) (vec %) [%]))))
 
-(defn get-in-file-map [fm path]
-  (get-in fm (interpose :children path)))
+(defn get-in-file-map
+  ([fm path]
+   (get-in fm (interpose :children path)))
+  ([fm path k]
+   (get-in fm (flatten [(interpose :children path) k]))))
 
 (defn assoc-in-file-map
   ([fm path v]

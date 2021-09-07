@@ -74,9 +74,11 @@
 
 (defn- delete-files
   [file-map]
-  (doall (->> file-map
-              (filter #(-> % second :selected?))
-              (map #(.delete (File. (first %)))))))
+  (doall
+    (->> file-map
+         u/file-map->paths
+         (filter #(u/get-in-file-map file-map % :selected?))
+         (map #(.delete (File. (st/join "/" %)))))))
 
 (defn- handle-input [scr file-map]
   (def ^:dynamic *fm* file-map)
@@ -128,7 +130,7 @@
   (.delete (File. "example.txt"))
 
   (def ^:dynamic *term* (future (-main "dev")))
-
+  (u/file-map->paths *fm*)
   v/*draw-paths*
 
   (get-in *fm* (last v/*draw-paths*))
