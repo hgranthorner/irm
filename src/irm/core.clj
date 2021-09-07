@@ -59,8 +59,8 @@
   [{:keys [y]} file-map]
   (let [index (dec y)
         path (get-file-path-by-index file-map index)
-        {selected :selected?} (get-in file-map path)]
-    (assoc-in file-map (vec (flatten [path :selected?])) (not selected))))
+        {selected :selected?} (u/get-in-file-map file-map path)]
+    (u/assoc-in-file-map file-map path :selected? (not selected))))
 
 (defn- toggle-directory
   [{:keys [y]} file-map]
