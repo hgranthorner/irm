@@ -20,7 +20,7 @@
         x))
     (try-optional xs)))
 
-(defn select
+(defn- -select
   "Recreates the basic functionality of clojure.alpha.spec/select for malli."
   [schema keys]
   (let [updated-schema (-> (all-optional schema)
@@ -34,12 +34,14 @@
                                         (not-empty %)
                                         (= (first %) k))
                            sp/LAST]
-              #(select % vs)
+              #(-select % vs)
               (m/form acc)))
           acc
           m))
       updated-schema
       (filter map? keys))))
+
+(def select (memoize -select))
 
 (comment
   (select [:map [:x :int]] [:x])
