@@ -22,24 +22,26 @@
 
 (defn- -select
   "Recreates the basic functionality of clojure.alpha.spec/select for malli."
-  [schema keys]
-  (let [updated-schema (-> (all-optional schema)
-                         (mu/required-keys (filter keyword? keys))
-                         m/form)]
-    (reduce
-      (fn [acc m]
-        (reduce
-          (fn [acc [k vs]]
-            (sp/transform [sp/ALL #(and (vector? %)
-                                        (not-empty %)
-                                        (= (first %) k))
-                           sp/LAST]
-              #(-select % vs)
-              (m/form acc)))
-          acc
-          m))
-      updated-schema
-      (filter map? keys))))
+  ([schema]
+   (-select schema []))
+  ([schema keys]
+   (let [updated-schema (-> (all-optional schema)
+                          (mu/required-keys (filter keyword? keys))
+                          m/form)]
+     (reduce
+       (fn [acc m]
+         (reduce
+           (fn [acc [k vs]]
+             (sp/transform [sp/ALL #(and (vector? %)
+                                         (not-empty %)
+                                         (= (first %) k))
+                            sp/LAST]
+               #(-select % vs)
+               (m/form acc)))
+           acc
+           m))
+       updated-schema
+       (filter map? keys)))))
 
 (def select (memoize -select))
 

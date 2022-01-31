@@ -1,33 +1,78 @@
 (ns irm.core
-  (:require [irm.select :refer [select]]
+  (:require [clojure.java.io :as io]
+            [irm.select :refer [select]]
             [irm.registry :as r]
             [malli.experimental :as mx]
             [malli.dev :as md]
+            [malli.core :as m]
             [malli.util :as mu]
-            [malli.registry :as mr]
-            [malli.core :as m]))
+            [clojure.string :as str])
+  (:import [java.io File]))
 
 (r/update-custom-registry
-  {::a :int})
+  {::id        :uuid
+   ::path      :string
+   ::name      :string
+   ::marked?   :boolean
+   ::dir?      :boolean
+   ::raw-file  :file
+   ::parent-id :uuid
+   ::depth     :int
+   :file       (m/-simple-schema
+                 {:type            :user/file
+                  :pred            (partial instance? File)
+                  :type-properties {:error/message "should be a java.io.File"}})})
 
-(def Thing
+(mx/defn current-dir :- :file
+  "Returns the current directory as a java.io.File."
+  []
+  (io/file (System/getProperty "user.dir")))
+
+(def FileEntry
   [:map
-   [:c :int]
-   [:d [:map
-        ::a]]])
+   ::raw-file
+   ::id
+   ::name
+   ::path
+   ::marked?
+   ::dir?
+   ::depth
+   [::parent-id {:optional true}]])
 
-(mx/defn thing :- :int
-  "Add two numbers"
-  [x :- :int
-   m :- (select Thing [{:b [:c]}])
-   z :- :int]
-  (let [{a ::a {c :c} :b} (merge m {::a 2 :b {:c 3}})]
-    (+ x a z c)))
-
-(m/validate (select Thing [{:d [::a]}])
-  {:c 3
-   :d {::a 5}})
+(mx/defn File->FileEntry :- FileEntry
+  ([file :- (mu/union :file :string)]
+   (let [f (if (string? file)
+             (io/file ^String file)
+             file)]
+     (assert (instance? File f))
+     {::id       (random-uuid)
+      ::path     (str f)
+      ::name     (.getName f)
+      ::marked?  false
+      ::dir?     (.isDirectory f)
+      ::raw-file f
+      ::depth    0}))
+  ([file :- (mu/union :file :string) {::keys [id depth]} :- (select FileEntry [::id ::depth])]
+   (let [entry (File->FileEntry file)]
+     (assoc entry ::parent-id id
+                  ::depth (inc depth)))))
 
 (comment
   (md/start!)
+  (map #(File->FileEntry % {::id (random-uuid) ::depth 0})
+    (.listFiles (current-dir)))
+  (let [fs (map File->FileEntry
+             (.listFiles (current-dir)))]
+    (doseq [{::keys [depth dir? name marked?]} (update
+                                                 (into [] (sort-by
+                                                            (juxt #(not (::dir? %)) ::name)
+                                                            fs))
+                                                 9
+                                                 #(-> (update % ::depth inc)
+                                                    (update ::marked? not)))]
+      (let [left-pad (str/join "" (repeat (* depth 3) " "))
+            icon     (if dir?
+                       (if marked? " v  " " >  ")
+                       (if marked? "[X] " "[ ] "))]
+        (printf "%s%s%s\n" left-pad icon name))))
   )
