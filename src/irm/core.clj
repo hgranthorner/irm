@@ -1,24 +1,26 @@
 (ns irm.core
-  (:require [clojure.java.io :as io]
-            [malli.core :as m]
-            [malli.experimental :as mx]
-            [irm.registry :as r]
-            [malli.util :as mu]
-            [malli.dev :as md]
-            [irm.select :refer [select]]
-            [clojure.string :as str])
+  (:require 
+    [clojure.java.io :as io]
+    [malli.core :as m]
+    [malli.experimental :as mx]
+    [irm.registry :as r]
+    [malli.util :as mu]
+    [malli.dev :as md]
+    [irm.select :refer [select]]
+    [clojure.string :as str]
+    [irm.protocols :as p])
   (:import
-   [java.io File]))
+    [java.io File]))
 
 (r/update-custom-registry
- {::id        :uuid
-  ::path      :string
-  ::name      :string
-  ::marked?   :boolean
-  ::dir?      :boolean
-  ::raw-file  :file
-  ::parent-id :uuid
-  ::depth     :int})
+  {::id        :uuid
+   ::path      :string
+   ::name      :string
+   ::marked?   :boolean
+   ::dir?      :boolean
+   ::raw-file  :file
+   ::parent-id :uuid
+   ::depth     :int})
 
 (def FileEntry
   [:map
@@ -30,6 +32,11 @@
    ::dir?
    ::depth
    [::parent-id {:optional true}]])
+
+(def AppState
+  [:map
+   [::files [:sequential FileEntry]]
+   [::y :int]])
 
 (mx/defn File->FileEntry :- FileEntry
   ([file :- (mu/union :file :string)]
@@ -47,7 +54,7 @@
   ([file :- (mu/union :file :string) {::keys [id depth]} :- (select FileEntry [::id ::depth])]
    (let [entry (File->FileEntry file)]
      (assoc entry ::parent-id id
-            ::depth (inc depth)))))
+       ::depth (inc depth)))))
 
 (mx/defn FileEntry->string
   [{::keys [depth dir? name marked?]} :- FileEntry]
@@ -58,47 +65,46 @@
     (format "%s%s%s\n" left-pad icon name)))
 
 (mx/defn sort-files :- [:sequential FileEntry]
-  [fs :- [:sequential FileEntry]]
+  [files :- [:sequential FileEntry]]
   (sort-by
-   (juxt #(not (::dir? %)) ::name)
-   fs))
+    (juxt #(not (::dir? %)) ::name)
+    files))
 
 (mx/defn FileEntries->strings
-  [fs :- [:sequential FileEntry]]
-  (map
-   FileEntry->string (sort-files fs)
+  [files :- [:sequential FileEntry]]
+  (let [sorted-files (sort-files files)]
+    (map FileEntry->string sorted-files)))
 
-   #_(update
-      (into [] (sort-files fs))
-      9
-      #(-> (update % ::depth inc)
-           (update ::marked? not)))))
+(mx/defn file-entries :- [:sequential FileEntry]
+  [path :- [:or :file :string]
+   fs :- :filesystem]
+  (map File->FileEntry (p/files-in-dir fs path)))
 
-(defn mark-file
-  [{::keys [files y] :as state}]
-  (let [file-id (get-in (vec (sort-files files)) [y ::id])]
-    (update
-     state
-     ::files
-     #(map (fn [f]
-             (if (= (::id f) file-id)
-               (update f ::marked? not)
-               f))
-           %))))
+(mx/defn mark-file :- AppState
+  [{::keys [files y] :as state} :- AppState
+   fs :- :filesystem]
+  (let [file (get (vec (sort-files files)) y)
+        updated-state (update state ::files #(map (fn [f]
+                                                    (if (= (::id f) (::id file))
+                                                      (update f ::marked? not)
+                                                      f)) %))]
+    (if-not (::dir? file)
+      updated-state
+      (update updated-state ::files #(concat % (file-entries (::raw-file file) fs))))))
 
 (comment
   (md/start!)
   (map #(File->FileEntry % {::id (random-uuid) ::depth 0})
-       (.listFiles (current-dir)))
+    (.listFiles (current-dir)))
   (let [fs (map File->FileEntry
-                (.listFiles (current-dir)))]
+             (.listFiles (current-dir)))]
     (doseq [{::keys [depth dir? name marked?]} (update
-                                                (into [] (sort-by
-                                                          (juxt #(not (::dir? %)) ::name)
-                                                          fs))
-                                                9
-                                                #(-> (update % ::depth inc)
-                                                     (update ::marked? not)))]
+                                                 (into [] (sort-by
+                                                            (juxt #(not (::dir? %)) ::name)
+                                                            fs))
+                                                 9
+                                                 #(-> (update % ::depth inc)
+                                                    (update ::marked? not)))]
       (let [left-pad (str/join "" (repeat (* depth 3) " "))
             icon     (if dir?
                        (if marked? " v  " " >  ")

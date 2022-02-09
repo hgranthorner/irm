@@ -1,11 +1,14 @@
 (ns irm.ui
   (:require
-   [irm.core :as c]
-   [irm.fs :as fs]
-   [lanterna.screen :as s]
-   [malli.experimental :as mx])
+    [irm.protocols :as p]
+    [irm.fs :as fs]
+    [irm.core :as c]
+    [lanterna.screen :as s]
+    [malli.experimental :as mx]
+    [clojure.java.io :as io]
+    [clojure.tools.trace :as trace])
   (:import
-   [com.googlecode.lanterna.screen Screen]))
+    [com.googlecode.lanterna.screen Screen]))
 
 (def fs fs/java-io-filesystem)
 
@@ -38,7 +41,7 @@
   (case key
     :down (update state ::c/y inc-max (-> state ::c/files count dec))
     :up (update state ::c/y dec-min 0)
-    :enter (c/mark-file state)
+    :enter (c/mark-file state fs)
     (do
       (prn key)
       state)))
@@ -56,7 +59,7 @@
 (defn run-app
   ([^Screen scr]
    (run-app scr {::c/y     0
-                 ::c/files (map c/File->FileEntry (fs/files-in-current-dir fs))}))
+                 ::c/files (map c/File->FileEntry (p/files-in-dir fs (p/current-dir fs)))}))
 
   ([^Screen scr state]
    (def ^:dynamic s state)
@@ -71,20 +74,29 @@
 
 (defn -main
   [& args]
-  (reset! running true)
-  (let [prod? (empty? args)
-        scr (s/get-screen (if prod? :text :swing))]
-    (s/start scr)
-    (run-app scr)
-    (s/stop scr)))
+  (try
+    (reset! running true)
+    (let [prod? (empty? args)
+          scr (s/get-screen (if prod? :text :swing))]
+      (s/start scr)
+      (run-app scr)
+      (s/stop scr))
+    (catch Exception e
+      (reset! running false)
+      (throw e))))
 
 (comment
   (clojure.pprint/pprint (c/mark-file s))
-  (c/sort-files (::c/files s))
+  (malli.dev/start!)
+  (malli.instrument/check)
+  
+  (clojure.pprint/pprint (::c/files s))
   (filter ::c/marked? (::c/files s))
-  (get-in [(::c/y s)] (into [] (c/sort-files (::c/files s))))
+  (filter ::c/marked? (::c/files (c/mark-file s)))
+  (get-in (into [] (c/sort-files (::c/files s))) [(::c/y s) ::c/id])
   (reset! running false)
   (def foo (future (-main :dev)))
+  (future-cancel foo)
   foo
   (def scr (s/get-screen :swing))
 
